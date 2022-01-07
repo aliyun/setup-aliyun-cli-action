@@ -1,0 +1,14 @@
+name: 'Aliyun CLI'
+description: set config in non interactive mode
+
+runs:
+  using: 'composite'
+  steps:
+    - id: download
+      shell: bash
+      run: |
+        go run main.go
+        dir
+branding:
+  icon: 'cloud-lightning'
+  color: 'orange'
