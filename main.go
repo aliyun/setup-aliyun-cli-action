@@ -1,77 +1,25 @@
 package main
 
 import (
+	"archive/tar"
+	"archive/zip"
+	"compress/gzip"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
-	"os/exec"
-
 	"os"
+	"os/exec"
+	"path/filepath"
 	"runtime"
 )
 
 var ext string
 
-type Config struct {
-	Input        string `json:"Input"`
-	Flag         string `json:"Flag"`
-	DefaultValue string `json:"DefaultValue"`
-}
-
 func main() {
 	if err := GetAliyunCliPkg(); err != nil {
 		log.Fatal(err)
 	}
-	if err := ConfigAliyunCli(); err != nil {
-		log.Fatal(err)
-	}
-}
-
-func ConfigAliyunCli() error {
-	var configs = []Config{
-		{Input: os.Getenv("MOD"), Flag: "--mode", DefaultValue: "AK"},
-		{Input: os.Getenv("PROFILE"), Flag: "--profile", DefaultValue: ""},
-		{Input: os.Getenv("LANGUAGE"), Flag: "--language", DefaultValue: "zh"},
-		{Input: os.Getenv("REGION"), Flag: "--region", DefaultValue: ""},
-		{Input: os.Getenv("CONFIG-PATH"), Flag: "--config-path", DefaultValue: ""},
-		{Input: os.Getenv("ACCESS-KEY-ID"), Flag: "--access-key-id", DefaultValue: ""},
-		{Input: os.Getenv("ACCESS-KEY-SECRET"), Flag: "--access-key-secret", DefaultValue: ""},
-		{Input: os.Getenv("STS-TOKEN"), Flag: "--sts-token", DefaultValue: ""},
-		{Input: os.Getenv("RAM-ROLE-NAME"), Flag: "--ram-role-name", DefaultValue: ""},
-		{Input: os.Getenv("RAM-ROLE-ARN"), Flag: "--ram-role-arn", DefaultValue: ""},
-		{Input: os.Getenv("ROLE-SESSION-NAME"), Flag: "--role-session-name", DefaultValue: ""},
-		{Input: os.Getenv("PRIVATE-KEY"), Flag: "--private-key", DefaultValue: ""},
-		{Input: os.Getenv("KEY-PAIR-NAME"), Flag: "--key-pair-name", DefaultValue: ""},
-		{Input: os.Getenv("READ-TIMEOUT"), Flag: "--read-timeout", DefaultValue: ""},
-		{Input: os.Getenv("CONNECT-TIMEOUT"), Flag: "--connect-timeout", DefaultValue: ""},
-		{Input: os.Getenv("RETRY-COUNT"), Flag: "--retry-count", DefaultValue: ""},
-		{Input: os.Getenv("SKIP-SECURE-VERIFY"), Flag: "--skip-secure-verify", DefaultValue: ""},
-		{Input: os.Getenv("EXPIRED-SECONDS"), Flag: "--expired-seconds", DefaultValue: ""},
-		{Input: os.Getenv("SECURE"), Flag: "--secure", DefaultValue: ""},
-		{Input: os.Getenv("FORCE"), Flag: "--force", DefaultValue: ""},
-		{Input: os.Getenv("ENDPOINT"), Flag: "--endpoint", DefaultValue: ""},
-		{Input: os.Getenv("VERSION"), Flag: "--version", DefaultValue: ""},
-		{Input: os.Getenv("HEADER"), Flag: "--header", DefaultValue: ""},
-		{Input: os.Getenv("BODY"), Flag: "--body", DefaultValue: ""},
-		{Input: os.Getenv("PAGER"), Flag: "--pager", DefaultValue: ""},
-		{Input: os.Getenv("OUTPUT"), Flag: "--output", DefaultValue: ""},
-		{Input: os.Getenv("WAITER"), Flag: "--waiter", DefaultValue: ""},
-		{Input: os.Getenv("DRYRUN"), Flag: "--dryrun", DefaultValue: ""},
-		{Input: os.Getenv("QUIET"), Flag: "--quiet", DefaultValue: ""},
-	}
-	var config string
-	for _, v := range configs {
-		if v.Input != "" {
-			config = config + " " + v.Flag + " " + v.Input
-			continue
-		}
-		config = config + " " + v.Flag + " " + v.DefaultValue
-	}
-	cmd := exec.Command("./aliyun", "configure", "set", config)
-	if err := cmd.Run(); err != nil {
-		return err
-	}
-	return nil
 }
 
 func GetAliyunCliPkg() error {
@@ -81,7 +29,7 @@ func GetAliyunCliPkg() error {
 	}
 	var system string
 	switch runtime.GOOS {
-	case "win32":
+	case "windows":
 		system = "windows"
 		ext = "zip"
 	case "darwin":
@@ -97,8 +45,8 @@ func GetAliyunCliPkg() error {
 		return err
 	}
 	defer resp.Body.Close()
-	if ext == "tgz" {
-		file, err := os.Create("./aliyun.tgz")
+	if system == "linux" || system == "macosx" {
+		file, err := os.Create("aliyun.tgz")
 		if err != nil {
 			return err
 		}
@@ -107,24 +55,116 @@ func GetAliyunCliPkg() error {
 		if err != nil {
 			return err
 		}
-		cmd := exec.Command("tar", "-zxvf", "./aliyun.tgz", "-C", ".")
+		absPath, err := filepath.Abs(file.Name())
+		if err != nil {
+			return err
+		}
+		if err := Decompression(absPath); err != nil {
+			return err
+		}
+		cmd := exec.Command("mv", "./aliyun", "/usr/local/bin")
 		if err := cmd.Run(); err != nil {
 			return err
 		}
 		return nil
 	}
-	file, err := os.Create("./aliyun.zip")
+	file, err := os.Create("aliyun.zip")
 	if err != nil {
 		return err
 	}
-	defer file.Close()
 	_, err = io.Copy(file, resp.Body)
 	if err != nil {
 		return err
 	}
-	cmd := exec.Command("unzip", "aliyun.zip", "-d", "cli")
+	absPath, err := filepath.Abs("aliyun.zip")
+	if err != nil {
+		return err
+	}
+	fmt.Println("test", absPath)
+	destFile, err := DecompressZip(absPath, "")
+	if err != nil {
+		return err
+	}
+	pa, err := filepath.Abs(destFile)
+	if err != nil {
+		return err
+	}
+	cmd := exec.Command("dir")
+	if err := cmd.Run(); err != nil {
+		return err
+	}
+	out := cmd.Stdout
+	fmt.Println(out)
+	s := fmt.Sprintf("PATH=%PATH%;" + pa + "\\aliyun.exe")
+	cmd = exec.Command("set", s)
 	if err := cmd.Run(); err != nil {
 		return err
 	}
 	return nil
+}
+
+func Decompression(fileName string) error {
+	file, err := os.Open(fileName)
+	if err != nil {
+		return err
+	}
+	gr, err := gzip.NewReader(file)
+	if err != nil {
+		return err
+	}
+	tr := tar.NewReader(gr)
+	for {
+		th, err := tr.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return err
+		}
+		fi, err := os.OpenFile(th.Name, os.O_CREATE|os.O_WRONLY, 0777)
+		if err != nil {
+			return err
+		}
+		defer fi.Close()
+		_, err = io.Copy(fi, tr)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func DecompressZip(fileName, destDir string) (string, error) {
+	fmt.Println("zip")
+	zr, err := zip.OpenReader(fileName)
+	if err != nil {
+		fmt.Println("world")
+		return "", err
+	}
+	defer zr.Close()
+	for _, f := range zr.File {
+		fpath := filepath.Join(destDir, f.Name)
+		if f.FileInfo().IsDir() {
+			os.MkdirAll(fpath, os.ModePerm)
+		} else {
+			if err = os.MkdirAll(filepath.Dir(fpath), os.ModePerm); err != nil {
+				return "", err
+			}
+			inFile, err := f.Open()
+			if err != nil {
+				return "", err
+			}
+			defer inFile.Close()
+			outFile, err := os.OpenFile(fpath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, f.Mode())
+			if err != nil {
+				return "", err
+			}
+			defer outFile.Close()
+			_, err = io.Copy(outFile, inFile)
+			if err != nil {
+				return "", err
+			}
+		}
+	}
+	return destDir, nil
 }

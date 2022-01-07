@@ -1,0 +1,35 @@
+name: 'Setup Aliyun CLI'
+description: 'Setup Aliyun CLI for GitHub Actions'
+
+inputs:
+  version:
+    description: "The version of Aliyun CLI"
+    required: false
+    default: "latest"
+
+runs:
+  using: 'composite'
+  steps:
+    - id: setup
+      shell: bash
+      run: |
+        VERSION=${{ inputs.version }}
+        if [ "${{ runner.os }}" == "macOS" ]
+        then
+          curl https://aliyuncli.alicdn.com/aliyun-cli-macosx-$VERSION-universal.tgz -s | tar xvz -C /usr/bin/
+        elif [ "${{ runner.os }}" == "Linux" && "${{ runner.arch }}" == "ARM64" ]
+        then
+          curl https://aliyuncli.alicdn.com/aliyun-cli-linux-$VERSION-arm64.tgz -s | tar xvz -C /usr/bin/
+        elif [ "${{ runner.os }}" == "Linux" && "${{ runner.arch }}" == "X64" ]
+        then
+          curl https://aliyuncli.alicdn.com/aliyun-cli-linux-$VERSION-amd64.tgz -s | tar xvz -C /usr/bin/
+        elif [ "${{ runner.os }}" == "Windows" ]
+        then
+          echo "Sorry, we don't support Windows now."
+          exit 1
+        fi
+        aliyun version
+
+branding:
+  icon: 'cloud'
+  color: 'orange'

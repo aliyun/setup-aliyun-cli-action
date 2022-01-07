@@ -1,1 +1,5 @@
 .DS_Store
+go.sum
+output
+aliyun
+aliyun.tgz
