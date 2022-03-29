@@ -1,0 +1,26 @@
+name: Test
+
+on: [push, pull_request]
+
+jobs:
+  run:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macOS-latest]
+    name: Test on ${{ matrix.os }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Setup Aliyun CLI
+        uses: ./
+        with:
+          access-key-id: ${{ secrets.ALIYUN_ACCESS_KEY_ID }}
+          access-key-secret: ${{ secrets.ALIYUN_ACCESS_KEY_SECRET }}
+          region: ${{ secrets.ALIYUN_REGION }}
+
+      - name: Test
+        run: |
+          aliyun --help
