@@ -1,5 +1,5 @@
-name: 'Setup Aliyun CLI'
-description: 'Setup Aliyun CLI for GitHub Actions'
+name: '"Setup Aliyun CLI" Action for GitHub Actions'
+description: 'Setup Aliyun CLI action for GitHub Actions'
 
 inputs:
   version:
@@ -25,9 +25,11 @@ runs:
           curl https://aliyuncli.alicdn.com/aliyun-cli-linux-$VERSION-amd64.tgz -s | tar xvz -C /usr/bin/
         elif [ "${{ runner.os }}" == "Windows" ]
         then
-          echo "Sorry, we don't support Windows now."
-          exit 1
+          wget https://aliyuncli.alicdn.com/aliyun-cli-windows-$VERSION-amd64.zip
+          Expand-Archive -Path ./aliyun-cli-windows-$VERSION-amd64.zip
+          $env:PATH = $env:PATH";$pwd.Path"
         fi
+        which aliyun
         aliyun version
 
 branding:
