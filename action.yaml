@@ -12,23 +12,39 @@ runs:
   steps:
     - id: setup
       shell: bash
+      if: runner.os == 'macOS' || runner.os == 'Linux'
       run: |
         VERSION=${{ inputs.version }}
         if [ "${{ runner.os }}" == "macOS" ]
         then
-          curl https://aliyuncli.alicdn.com/aliyun-cli-macosx-$VERSION-universal.tgz -s | tar xvz -C /usr/bin/
-        elif [ "${{ runner.os }}" == "Linux" && "${{ runner.arch }}" == "ARM64" ]
+          curl -fsSL -O https://aliyuncli.alicdn.com/aliyun-cli-macosx-$VERSION-universal.tgz
+          tar zxvf ./aliyun-cli-macosx-$VERSION-universal.tgz
+          chmod 777 ./aliyun
+          mv ./aliyun /usr/local/bin/
+        elif [ "${{ runner.os }}" == "Linux" ] && [ "${{ runner.arch }}" == "ARM64" ]
         then
-          curl https://aliyuncli.alicdn.com/aliyun-cli-linux-$VERSION-arm64.tgz -s | tar xvz -C /usr/bin/
-        elif [ "${{ runner.os }}" == "Linux" && "${{ runner.arch }}" == "X64" ]
+          curl -fsSL -O https://aliyuncli.alicdn.com/aliyun-cli-linux-$VERSION-arm64.tgz
+          tar zxvf ./aliyun-cli-linux-$VERSION-arm64.tgz
+          chmod 777 ./aliyun
+          sudo mv ./aliyun /usr/bin/
+        elif [ "${{ runner.os }}" == "Linux" ] &&  [ "${{ runner.arch }}" == "X64" ]
         then
-          curl https://aliyuncli.alicdn.com/aliyun-cli-linux-$VERSION-amd64.tgz -s | tar xvz -C /usr/bin/
-        elif [ "${{ runner.os }}" == "Windows" ]
-        then
-          wget https://aliyuncli.alicdn.com/aliyun-cli-windows-$VERSION-amd64.zip
-          Expand-Archive -Path ./aliyun-cli-windows-$VERSION-amd64.zip
-          $env:PATH = $env:PATH";$pwd.Path"
+          curl -fsSL -O https://aliyuncli.alicdn.com/aliyun-cli-linux-$VERSION-amd64.tgz
+          tar zxvf ./aliyun-cli-linux-$VERSION-amd64.tgz
+          chmod 777 ./aliyun
+          sudo mv ./aliyun /usr/bin/
         fi
+        which aliyun
+        aliyun version
+
+    - id: setup_for_windows
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        $version = "${{ inputs.version }}"
+        curl -fsSL -O https://aliyuncli.alicdn.com/aliyun-cli-windows-${version}-amd64.zip
+        Expand-Archive -Path ./aliyun-cli-windows-${version}-amd64.zip -DestinationPath ./out
+        $env:PATH = "$env:PATH;$pwd/out"
         which aliyun
         aliyun version
 
